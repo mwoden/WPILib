@@ -92,6 +92,16 @@
     <Compile Include="CAN\CANMessageNotAllowedException.cs" />
     <Compile Include="CAN\CANNotInitializedException.cs" />
     <Compile Include="CircularBuffer.cs" />
+    <Compile Include="CommandsV2\Command.cs" />
+    <Compile Include="CommandsV2\CommandGroup.cs" />
+    <Compile Include="CommandsV2\EntityId.cs" />
+    <Compile Include="CommandsV2\ICommand.cs" />
+    <Compile Include="CommandsV2\IScheduler.cs" />
+    <Compile Include="CommandsV2\ISubsystem.cs" />
+    <Compile Include="CommandsV2\ITimer.cs" />
+    <Compile Include="CommandsV2\Scheduler.cs" />
+    <Compile Include="CommandsV2\Subsystem.cs" />
+    <Compile Include="CommandsV2\Trigger.cs" />
     <Compile Include="Commands\LinkedListElement.cs" />
     <Compile Include="DigitalGlitchFilter.cs" />
     <Compile Include="Exceptions\AllocationException.cs" />
@@ -221,6 +231,7 @@
     <None Include="wpinative\libopencv_videostab.so.3.1" />
     <None Include="wpinative\libwpiutil.so" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>
