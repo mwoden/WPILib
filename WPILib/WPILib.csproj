@@ -94,8 +94,10 @@
     <Compile Include="CircularBuffer.cs" />
     <Compile Include="CommandsV2\Command.cs" />
     <Compile Include="CommandsV2\CommandGroup.cs" />
+    <Compile Include="CommandsV2\CommandSequence.cs" />
     <Compile Include="CommandsV2\EntityId.cs" />
     <Compile Include="CommandsV2\ICommand.cs" />
+    <Compile Include="CommandsV2\IMultiCommand.cs" />
     <Compile Include="CommandsV2\IScheduler.cs" />
     <Compile Include="CommandsV2\ISubsystem.cs" />
     <Compile Include="CommandsV2\ITimer.cs" />
