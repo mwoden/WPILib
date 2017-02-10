@@ -70,7 +70,7 @@ namespace WPILib.CommandsV2
         /// The subsystem required for the command (if there is one)
         /// </summary>
         ISubsystem Required { get; }
-
+                
         /// <summary>
         /// A unique ID for the command
         /// </summary>

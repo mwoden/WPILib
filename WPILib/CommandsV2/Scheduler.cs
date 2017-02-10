@@ -167,7 +167,8 @@ namespace WPILib.CommandsV2
                 if (command is Command)
                     _command = new Command((Command)command);
                 else if (command is CommandGroup)
-                    _command = new CommandGroup((CommandGroup)command);
+                    //_command = new CommandGroup((CommandGroup)command);
+                    throw new NotImplementedException();
 
                 lastState = GetCurrentState();
             }
