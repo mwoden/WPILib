@@ -44,8 +44,6 @@ namespace WPILib.CommandsV2
             return new CommandSequence(_groups.Concat(new[] { commandGroup }));
         }
 
-        private readonly IList<CommandGroup> _groups = new CommandGroup[0];
-
         private CommandSequence(IEnumerable<CommandGroup> groups)
         {
             _groups = groups.Select(x => new CommandGroup(x)).ToList().AsReadOnly();
@@ -69,6 +67,9 @@ namespace WPILib.CommandsV2
 
         public void Start()
         {
+            if (!_groups.Any())
+                throw new InvalidOperationException("CommandSequence has no items");
+
             // Get all the commands in the command group
             var commandsWithRequirement = Commands.Where(x => x.Required != null)
                                                   .Distinct()
@@ -86,17 +87,19 @@ namespace WPILib.CommandsV2
                 foreach (var subsystem in _subsystems)
                     subsystem.StopActiveCommand();
 
-                foreach (var command in _groups)
-                    command.Start();
+                _activeCommands = new Queue<CommandGroup>(_groups);
+
+                _activeCommands.Dequeue().Start();
+
             }
         }
 
         void ICommand.Run()
         {
             // If all of the commands in the group are done, the command group is done
-            if (_commandsCompleted == _groups.Count())
+            if (!_activeCommands.Any())
                 FinishCommandSequence(false);
-        }
+                   }
 
         public void Stop()
         {
@@ -106,11 +109,15 @@ namespace WPILib.CommandsV2
             FinishCommandSequence(true);
         }
 
+        private readonly IList<CommandGroup> _groups = new CommandGroup[0];
+
         private readonly bool _isInterruptible;
         private readonly IList<ISubsystem> _subsystems;
         private bool _isInitialized;
         private bool _isRunning;
-        private int _commandsCompleted;
+
+        private Queue<CommandGroup> _activeCommands = new Queue<CommandGroup>();
+
 
         /// <summary>
         /// Runs the appropriate command-ending events and reset state variables for the next time
@@ -122,7 +129,7 @@ namespace WPILib.CommandsV2
             OnEnd?.Invoke(this);
             _isInitialized = false;
             _isRunning = false;
-            _commandsCompleted = 0;
+            _activeCommands.Clear();
         }
 
         /// <summary>
@@ -131,7 +138,9 @@ namespace WPILib.CommandsV2
         private void CommandEnded(ICommand command)
         {
             command.OnEnd -= CommandEnded;
-            _commandsCompleted++;
+
+            if (_activeCommands.Any())
+                _activeCommands.Dequeue().Start();
         }
     }
 }
