@@ -10,24 +10,27 @@ namespace WPILib.CommandsV2
     /// </summary>
     public sealed class CommandGroup : ICommand, IMultiCommand
     {
-        public event Action<ICommand> OnInitialize;
         public event Action<ICommand> OnComplete;
         public event Action<ICommand> OnInterrupt;
         public event Action<ICommand> OnEnd;
 
 #pragma warning disable CS0067
-        // A command group doesn't have any external actions on execute
+        // A CommandGroup doesn't have any external actions on initialize
+        public event Action<ICommand> OnInitialize;
+        // A CommandGroup doesn't have any external actions on execute
         public event Action<ICommand> OnExecute;
-        // A command group ends when all the commands are completed
+        // A CommandGroup ends when all the commands are completed
         public event Func<bool> IsFinished;
 #pragma warning restore CS0067
 
         public bool IsInterruptible => _isInterruptible;
         public ISubsystem Required => null;
-        public EntityId Id => _id;
+        public EntityId Id { get; } = EntityId.Generate();
         public string Name => string.Format("CommandGroup ({0})", (int)Id);
         public bool IsRunning => _isRunning;
-        IEnumerable<ISubsystem> IMultiCommand.Requirements => _subsystems;
+
+        public IEnumerable<ISubsystem> Requirements => _subsystems;
+        public IEnumerable<ICommand> Commands => _commands;
 
         public CommandGroup(params Command[] list)
         {
@@ -48,8 +51,6 @@ namespace WPILib.CommandsV2
             return new CommandGroup(list);
         }
 
-
-
         public void SetNonInterruptible()
         {
             throw new InvalidOperationException("Command group can't be set non-interruptible");
@@ -58,8 +59,8 @@ namespace WPILib.CommandsV2
         public void Start()
         {
             // Get all the commands in the command group
-            var commandsWithRequirement = _commands.Where(x => x.Required != null)
-                                                   .Distinct()
+            var commandsWithRequirement = Commands.Where(x => x.Required != null)
+                                                  .Distinct()
                                                    .ToList();
 
             // Determine if any of the commands can't run on their requirerd subsystem
@@ -92,9 +93,6 @@ namespace WPILib.CommandsV2
                 FinishCommandGroup(false);
         }
 
-        /// <summary>
-        /// This method will stop the current subgroup and end the command group
-        /// </summary>
         public void Stop()
         {
             foreach (var command in _commands)
@@ -103,7 +101,6 @@ namespace WPILib.CommandsV2
             FinishCommandGroup(true);
         }
 
-        private readonly EntityId _id = EntityId.Generate();
         private readonly bool _isInterruptible;
         private readonly IList<Command> _commands;
         private readonly IList<ISubsystem> _subsystems;

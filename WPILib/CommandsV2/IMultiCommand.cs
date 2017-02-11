@@ -9,7 +9,12 @@ namespace WPILib.CommandsV2
     public interface IMultiCommand : ICommand
     {
         /// <summary>
-        /// Represents a set of distinct requirements for commands in a group or sequencec
+        /// All the commands
+        /// </summary>
+        IEnumerable<ICommand> Commands { get; }
+
+        /// <summary>
+        /// Represents a set of distinct requirements for commands in a group or sequence
         /// </summary>
         IEnumerable<ISubsystem> Requirements { get; }
     }

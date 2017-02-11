@@ -5,80 +5,61 @@ using System.Linq;
 
 namespace WPILib.CommandsV2
 {
-    public sealed class CommandSequence// : ICommand
+    /// <summary>
+    /// A <see cref="CommandSequence"/> is a set of commands that will run serially
+    /// </summary>
+    public sealed class CommandSequence : ICommand, IMultiCommand
     {
-#if false
-        public event Action<ICommand> OnInitialize;
         public event Action<ICommand> OnComplete;
         public event Action<ICommand> OnInterrupt;
         public event Action<ICommand> OnEnd;
 
 #pragma warning disable CS0067
+        // A CommandSequence doesn't have any external actions on initalize
+        public event Action<ICommand> OnInitialize;
+        // A CommandSequence doesn't have any external actions on execute
         public event Action<ICommand> OnExecute;
+        // A CommandSequence ends when all the commands are completed
         public event Func<bool> IsFinished;
 #pragma warning restore CS0067
 
         public bool IsInterruptible => _isInterruptible;
         public ISubsystem Required => null;
-        public EntityId Id => _id;
-        public string Name => string.Format("CommandGroup ({0})", (int)Id);
+        public EntityId Id { get; } = EntityId.Generate();
+        public string Name => string.Format("CommandSequence ({0})", (int)Id);
         public bool IsRunning => _isRunning;
-#endif
+
+        public IEnumerable<ISubsystem> Requirements => _subsystems;
+        public IEnumerable<ICommand> Commands => _groups.SelectMany(x => x.Commands);
 
         public CommandSequence() { }
 
         public CommandSequence Add(Command command)
         {
-            Add(CommandGroup.Create(command));
-            return this;
-            //return new CommandSequence(_commands.Concat(new[] { command }));
+            return Add(new CommandGroup(command));
         }
 
         public CommandSequence Add(CommandGroup commandGroup)
         {
-            _groups.Add(new CommandGroup(commandGroup));
-            return this;
+            return new CommandSequence(_groups.Concat(new[] { commandGroup }));
         }
 
-        private readonly List<CommandGroup> _groups = new List<CommandGroup>();
+        private readonly IList<CommandGroup> _groups = new CommandGroup[0];
 
         private CommandSequence(IEnumerable<CommandGroup> groups)
         {
-            _groups = groups.ToList();  //.AsReadOnly();
-        }
+            _groups = groups.Select(x => new CommandGroup(x)).ToList().AsReadOnly();
 
-#if false
-        public CommandGroup(CommandGroup commandGroup)
-        {
-            //_subgroups = list.Select((x, index) => new Subgroup(index + 1, x)).ToList();
-            //_isInterruptible = list.SelectMany(x => x).All(x => x.IsInterruptible);
+            _subsystems = _groups.Cast<IMultiCommand>()
+                                 .SelectMany(x => x.Requirements)
+                                 .Distinct()
+                                 .ToList()
+                                 .AsReadOnly();
 
-            // Grab each 
+            foreach (var group in _groups)
+                group.OnEnd += CommandEnded;
 
-
-            _subsystems = commandGroup._subsystems;
-        }
-
-        public class Grouping : IEnumerable<Command>
-        {
-            public IReadOnlyCollection<Command> Commands { get; private set; }
-
-            //TODO Should be able to pass a command group in as well, and have it do the 'right' thing
-            public Grouping(params Command[] list) { Commands = list.ToList().AsReadOnly(); }
-
-            public Grouping(params CommandGroup[] list)
-            {
-                throw new NotImplementedException();
-
-
-            }
-
-
-            public static Grouping Create(params Command[] list) { return new Grouping(list); }
-
-            public IEnumerator<Command> GetEnumerator() { return Commands.GetEnumerator(); }
-
-            IEnumerator IEnumerable.GetEnumerator() { return Commands.GetEnumerator(); }
+            _isInterruptible = groups.All(x => x.IsInterruptible);
         }
 
         public void SetNonInterruptible()
@@ -89,10 +70,9 @@ namespace WPILib.CommandsV2
         public void Start()
         {
             // Get all the commands in the command group
-            var commandsWithRequirement = _subgroups.SelectMany(x => x)
-                                                    .Where(x => x.Required != null)
-                                                    .Distinct()
-                                                    .ToList();
+            var commandsWithRequirement = Commands.Where(x => x.Required != null)
+                                                  .Distinct()
+                                                  .ToList();
 
             // Determine if any of the commands can't run on their requirerd subsystem
             var canRun = commandsWithRequirement.All(cmd => cmd.Required.IsRunnable(cmd));
@@ -106,127 +86,43 @@ namespace WPILib.CommandsV2
                 foreach (var subsystem in _subsystems)
                     subsystem.StopActiveCommand();
 
-                _runningSubgroups = new Queue<Subgroup>(_subgroups);
-
-                CheckAndRunNextGroup();
+                foreach (var command in _groups)
+                    command.Start();
             }
         }
 
         void ICommand.Run()
         {
-            if (!_isInitialized)
-            {
-                _isInitialized = true;
-                OnInitialize?.Invoke(this);
-            }
-
-            // Check if the current subgroup is done, and if it is, start the next
-            // subgroup
-            CheckAndRunNextGroup();
-
-            // If the running subgroup has gone past the end, the command group is done
-            if (_activeSubgroup.IsDone && !_runningSubgroups.Any())
-            {
-                _activeSubgroup = Subgroup.Default;
-                OnComplete?.Invoke(this);
-                OnEnd?.Invoke(this);
-                _isInitialized = false;
-                _isRunning = false;
-            }
+            // If all of the commands in the group are done, the command group is done
+            if (_commandsCompleted == _groups.Count())
+                FinishCommandSequence(false);
         }
 
-        /// <summary>
-        /// This method will stop the current subgroup and end the command group
-        /// </summary>
         public void Stop()
         {
-            _activeSubgroup.Stop();
-            _runningSubgroups.Clear();
-            _activeSubgroup = Subgroup.Default;
-            OnInterrupt?.Invoke(this);
+            foreach (var group in _groups)
+                ((ICommand)group).Stop();
+
+            FinishCommandSequence(true);
+        }
+
+        private readonly bool _isInterruptible;
+        private readonly IList<ISubsystem> _subsystems;
+        private bool _isInitialized;
+        private bool _isRunning;
+        private int _commandsCompleted;
+
+        /// <summary>
+        /// Runs the appropriate command-ending events and reset state variables for the next time
+        /// </summary>
+        /// <param name="interrupted">Indicates if the command finished normally or was interrupted</param>
+        private void FinishCommandSequence(bool interrupted)
+        {
+            (interrupted ? OnInterrupt : OnComplete)?.Invoke(this);
             OnEnd?.Invoke(this);
             _isInitialized = false;
             _isRunning = false;
-        }
-
-        private readonly EntityId _id = EntityId.Generate();
-        private readonly bool _isInterruptible;
-        private readonly List<Subgroup> _subgroups;
-        private readonly List<ISubsystem> _subsystems;
-        private bool _isInitialized;
-        private bool _isRunning;
-
-        private Queue<Subgroup> _runningSubgroups;
-        private Subgroup _activeSubgroup = Subgroup.Default;
-
-
-        /// <summary>
-        /// Helper class to manager the subgroups in the command group
-        /// </summary>
-        private class Subgroup : IEnumerable<Command>
-        {
-            public Subgroup(int index, IEnumerable<Command> commands)
-            {
-                _index = index;
-                _commands = commands.Select(x => new Command(x)).ToList();
-                _subsystems = new HashSet<ISubsystem>(_commands.Select(x => x.Required).Where(x => x != null));
-
-                foreach (var cmd in _commands)
-                    cmd.OnEnd += CommandEnded;
-            }
-
-            public void Start()
-            {
-                foreach (var cmd in _commands)
-                    cmd.Start();
-            }
-
-            public void Stop()
-            {
-                foreach (var entry in _subsystems.Cast<ISubsystem>())
-                    entry.StopActiveCommand();
-            }
-
-            public IEnumerator<Command> GetEnumerator()
-            {
-                return _commands.GetEnumerator();
-            }
-
-            IEnumerator IEnumerable.GetEnumerator()
-            {
-                return _commands.GetEnumerator();
-            }
-
-            public HashSet<ISubsystem> Subsystems => _subsystems;
-
-            public int Index => _index;
-            public bool IsDone => _commands.Count == _commandsDone;
-
-            public static Subgroup Default => _default;
-
-            private readonly HashSet<ISubsystem> _subsystems;
-            private readonly List<Command> _commands;
-            private readonly int _index;
-
-            private int _commandsDone;
-
-            private void CommandEnded(ICommand command)
-            {
-                _commandsDone++;
-            }
-
-            private static readonly Subgroup _default = new Subgroup(1, new Command[0]);
-        }
-
-
-        private void CheckAndRunNextGroup()
-        {
-            // Check if the current subgroup is done and there's another subgroup to run
-            if (_activeSubgroup.IsDone && _runningSubgroups.Any())
-            {
-                _activeSubgroup = _runningSubgroups.Dequeue();
-                _activeSubgroup.Start();
-            }
+            _commandsCompleted = 0;
         }
 
         /// <summary>
@@ -235,8 +131,7 @@ namespace WPILib.CommandsV2
         private void CommandEnded(ICommand command)
         {
             command.OnEnd -= CommandEnded;
+            _commandsCompleted++;
         }
-    }
-#endif
     }
 }
