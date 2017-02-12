@@ -124,7 +124,7 @@ namespace WPILib.CommandsV2
             Name = name;
         }
 
-        public Command(Command original)
+        private Command(Command original)
             : this()
         {
             OnComplete = original.OnComplete;
@@ -165,7 +165,6 @@ namespace WPILib.CommandsV2
             }
         }
 
-
         /// <summary>
         /// The main processing element of the command. This will be called repeatedly
         /// by the scheduler.
@@ -191,6 +190,10 @@ namespace WPILib.CommandsV2
             RunInterrupted();
         }
 
+        public Command Duplicate()
+        {
+            return new Command(this);
+        }
 
         public static bool operator ==(Command lhs, Command rhs)
         {

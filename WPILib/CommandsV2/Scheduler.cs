@@ -165,7 +165,7 @@ namespace WPILib.CommandsV2
                 getTriggerState += stateGetter;
 
                 if (command is Command)
-                    _command = new Command((Command)command);
+                    _command = ((Command)command).Duplicate();
                 else if (command is CommandGroup)
                     //_command = new CommandGroup((CommandGroup)command);
                     throw new NotImplementedException();

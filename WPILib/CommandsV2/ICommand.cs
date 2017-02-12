@@ -96,5 +96,10 @@ namespace WPILib.CommandsV2
         /// Stops the command. This will interrupt the command.
         /// </summary>
         void Stop();
+
+        /// <summary>
+        /// Creates a copy of the command.
+        /// </summary>
+        ICommand Duplicate();
     }
 }

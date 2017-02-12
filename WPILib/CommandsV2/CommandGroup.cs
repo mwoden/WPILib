@@ -34,7 +34,7 @@ namespace WPILib.CommandsV2
 
         public CommandGroup(params Command[] list)
         {
-            _commands = list.Select(x => new Command(x)).ToList().AsReadOnly();
+            _commands = list.Select(x => x.Duplicate()).ToList().AsReadOnly();
 
             foreach (var command in _commands)
                 command.OnEnd += CommandEnded;
