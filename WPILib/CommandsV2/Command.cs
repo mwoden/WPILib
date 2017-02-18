@@ -190,10 +190,7 @@ namespace WPILib.CommandsV2
             RunInterrupted();
         }
 
-        public Command Duplicate()
-        {
-            return new Command(this);
-        }
+        public ICommand Duplicate() => new Command(this);
 
         public static bool operator ==(Command lhs, Command rhs)
         {

@@ -39,14 +39,13 @@ namespace WPILib.CommandsV2
             return Add(new CommandGroup(command));
         }
 
-        public CommandSequence Add(CommandGroup commandGroup)
-        {
-            return new CommandSequence(_groups.Concat(new[] { commandGroup }));
-        }
+        public CommandSequence Add(CommandGroup commandGroup) => new CommandSequence(_groups.Concat(new[] { commandGroup }));
+
+        public ICommand Duplicate() => new CommandSequence(this);
 
         private CommandSequence(IEnumerable<CommandGroup> groups)
         {
-            _groups = groups.Select(x => new CommandGroup(x)).ToList().AsReadOnly();
+            _groups = groups.Select(x => x.Duplicate()).OfType<CommandGroup>().ToList().AsReadOnly();
 
             _subsystems = _groups.Cast<IMultiCommand>()
                                  .SelectMany(x => x.Requirements)
@@ -99,7 +98,7 @@ namespace WPILib.CommandsV2
             // If all of the commands in the group are done, the command group is done
             if (!_activeCommands.Any())
                 FinishCommandSequence(false);
-                   }
+        }
 
         public void Stop()
         {
@@ -118,6 +117,8 @@ namespace WPILib.CommandsV2
 
         private Queue<CommandGroup> _activeCommands = new Queue<CommandGroup>();
 
+        private CommandSequence(CommandSequence original)
+            : this(original._groups) { }
 
         /// <summary>
         /// Runs the appropriate command-ending events and reset state variables for the next time

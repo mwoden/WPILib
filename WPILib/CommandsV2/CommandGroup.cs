@@ -33,18 +33,10 @@ namespace WPILib.CommandsV2
         public IEnumerable<ICommand> Commands => _commands;
 
         public CommandGroup(params Command[] list)
-        {
-            _commands = list.Select(x => x.Duplicate()).ToList().AsReadOnly();
+            : this(list.Cast<ICommand>())
+        { }
 
-            foreach (var command in _commands)
-                command.OnEnd += CommandEnded;
-
-            _isInterruptible = _commands.All(x => x.IsInterruptible);
-            _subsystems = _commands.Select(x => x.Required).Distinct().ToList().AsReadOnly();
-        }
-
-        public CommandGroup(CommandGroup group)
-            : this(group._commands.ToArray()) { }
+        public ICommand Duplicate() => new CommandGroup(this);
 
         public static CommandGroup Create(params Command[] list)
         {
@@ -102,12 +94,26 @@ namespace WPILib.CommandsV2
         }
 
         private readonly bool _isInterruptible;
-        private readonly IList<Command> _commands;
+        private readonly IList<ICommand> _commands;
         private readonly IList<ISubsystem> _subsystems;
 
         private bool _isInitialized;
         private bool _isRunning;
         private int _commandsCompleted;
+
+        private CommandGroup(CommandGroup group)
+         : this(group._commands) { }
+
+        private CommandGroup(IEnumerable<ICommand> list)
+        {
+            _commands = list.Select(x => x.Duplicate()).ToList().AsReadOnly();
+
+            foreach (var command in _commands)
+                command.OnEnd += CommandEnded;
+
+            _isInterruptible = _commands.All(x => x.IsInterruptible);
+            _subsystems = _commands.Select(x => x.Required).Distinct().ToList().AsReadOnly();
+        }
 
         /// <summary>
         /// Runs the appropriate command-ending events and reset state variables for the next time
