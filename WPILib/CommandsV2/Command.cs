@@ -34,7 +34,7 @@ namespace WPILib.CommandsV2
         {
             var cmd = new Command("Instant");
 
-            cmd.OnInitialize += c => action();
+            cmd.OnInitialize += c => action?.Invoke();
             cmd.OnInitialize += c => Console.WriteLine(string.Format("{0}{1} ({2}):  {3} @ {4}", "", c.Name, c.Id, "Init", ""));
             cmd.OnEnd += c => Console.WriteLine(string.Format("{0}{1} ({2}):  {3} @ {4}", "", c.Name, c.Id, "End", ""));
 
@@ -47,10 +47,9 @@ namespace WPILib.CommandsV2
         /// <summary>
         /// Returns a command that executes the action immediately and finishes
         /// </summary>
-        /// <param name="subsystem">The required subsystem</param>
         /// <param name="action">The action to execute</param>
-        /// <returns></returns>
-        public static Command Instant(ISubsystem subsystem, Action action)
+        /// <param name="subsystem">The required subsystem</param>
+        public static Command Instant(Action action, ISubsystem subsystem)
         {
             var cmd = Instant(action);
 
@@ -59,7 +58,47 @@ namespace WPILib.CommandsV2
             return cmd;
         }
 
-        public static ITimer Timer { get; set; }
+        /// <summary>
+        /// Returns a command that executes an action repeatedly until the isFinished determines
+        /// the command is done, then stops.
+        /// </summary>
+        /// <param name="running">An action to execute repeatedly</param>
+        /// <param name="isFinished">A predicate that determines when the command is finished</param>
+        /// <param name="stopping">an action to execture when the command ends (regardless of how)</param>
+        public static Command Normal(Action running, Func<bool> isFinished, Action stopping)
+        {
+            var cmd = new Command("Normal");
+
+            cmd.OnExecute += c => running?.Invoke();
+            cmd.OnEnd += c => stopping?.Invoke();
+
+            // The command finishes immediately
+            cmd.IsFinished += isFinished;
+
+            return cmd;
+        }
+
+        /// <summary>
+        /// Returns a command that executes an action repeatedly until the isFinished determines
+        /// the command is done, then stops.
+        /// </summary>
+        /// <param name="running">An action to execute repeatedly</param>
+        /// <param name="isFinished">A predicate that determines when the command is finished</param>
+        /// <param name="stopping">an action to execture when the command ends (regardless of how)</param>
+        /// <param name="subsystem">The required subsystem</param>
+        public static Command Normal(Action running, Func<bool> isFinished, Action stopping, ISubsystem subsystem)
+        {
+            var cmd = new Command("Normal");
+
+            cmd.Required = subsystem;
+            cmd.OnExecute += c => running?.Invoke();
+            cmd.OnEnd += c => stopping?.Invoke();
+
+            // The command finishes immediately
+            cmd.IsFinished += isFinished;
+
+            return cmd;
+        }
 
         /// <summary>
         /// Runs when the command is initialized
@@ -72,6 +111,7 @@ namespace WPILib.CommandsV2
         public event Func<bool> IsFinished;
 
         public string Name { get; }
+        public TimeSpan Duration { get; private set; }
         public EntityId Id => _id;
         public bool IsInterruptible => _isInterruptible;
         public bool IsTimedOut => RunningTime > _timeOut;
@@ -161,6 +201,7 @@ namespace WPILib.CommandsV2
             if (!_isRunning)
             {
                 _isRunning = true;
+                Duration = TimeSpan.Zero;
                 ((IScheduler)(Scheduler.Instance)).Start(this);
             }
         }
@@ -228,7 +269,7 @@ namespace WPILib.CommandsV2
         }
 
 
-        private TimeSpan RunningTime => Timer.Now - _startTime;
+        private TimeSpan RunningTime => Scheduler.Instance.Timer.Now - _startTime;
         private bool IsDone => IsFinished?.Invoke() ?? true;
 
         private readonly EntityId _id = EntityId.Generate();
@@ -250,7 +291,7 @@ namespace WPILib.CommandsV2
             {
                 OnInitialize?.Invoke(this);
                 _isInitialized = true;
-                _startTime = Timer.Now;
+                _startTime = Scheduler.Instance.Timer.Now;
             }
         }
 
@@ -283,6 +324,8 @@ namespace WPILib.CommandsV2
         /// </summary>
         private void Stopping()
         {
+            // Capture the running time for the duration
+            Duration = RunningTime;
             OnEnd?.Invoke(this);
             _isInitialized = false;
             _isRunning = false;

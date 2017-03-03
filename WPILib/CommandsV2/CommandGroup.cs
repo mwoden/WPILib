@@ -27,11 +27,13 @@ namespace WPILib.CommandsV2
         public ISubsystem Required => null;
         public EntityId Id { get; } = EntityId.Generate();
         public string Name => string.Format("CommandGroup ({0})", (int)Id);
+        public TimeSpan Duration { get; private set; }
         public bool IsRunning => _isRunning;
 
         public IEnumerable<ISubsystem> Requirements => _subsystems;
         public IEnumerable<ICommand> Commands => _commands;
 
+        //TODO Need to be able to force a timeout on commands added to a group
         public CommandGroup(params Command[] list)
             : this(list.Cast<ICommand>())
         { }
@@ -50,25 +52,29 @@ namespace WPILib.CommandsV2
 
         public void Start()
         {
-            // Get all the commands in the command group
-            var commandsWithRequirement = Commands.Where(x => x.Required != null)
-                                                  .Distinct()
-                                                   .ToList();
-
-            // Determine if any of the commands can't run on their requirerd subsystem
-            var canRun = commandsWithRequirement.All(cmd => cmd.Required.IsRunnable(cmd));
-
-            // If the command isn't blocked, stop all the subsystems and begin running the command group
-            if (canRun)
+            if (!_isRunning)
             {
-                _isRunning = true;
-                ((IScheduler)Scheduler.Instance).Start(this);
+                // Get all the commands in the command group
+                var commandsWithRequirement = Commands.Where(x => x.Required != null)
+                                                      .Distinct()
+                                                       .ToList();
 
-                foreach (var subsystem in _subsystems)
-                    subsystem.StopActiveCommand();
+                // Determine if any of the commands can't run on their requirerd subsystem
+                var canRun = commandsWithRequirement.All(cmd => cmd.Required.IsRunnable(cmd));
 
-                foreach (var command in _commands)
-                    command.Start();
+                // If the command isn't blocked, stop all the subsystems and begin running the command group
+                if (canRun)
+                {
+                    _startTime = Scheduler.Instance.Timer.Now;
+                    _isRunning = true;
+                    ((IScheduler)Scheduler.Instance).Start(this);
+
+                    foreach (var subsystem in _subsystems)
+                        subsystem.StopActiveCommand();
+
+                    foreach (var command in _commands)
+                        command.Start();
+                }
             }
         }
 
@@ -100,6 +106,7 @@ namespace WPILib.CommandsV2
         private bool _isInitialized;
         private bool _isRunning;
         private int _commandsCompleted;
+        private TimeSpan _startTime;
 
         private CommandGroup(CommandGroup group)
          : this(group._commands) { }
@@ -121,6 +128,7 @@ namespace WPILib.CommandsV2
         /// <param name="interrupted">Indicates if the command finished normally or was interrupted</param>
         private void FinishCommandGroup(bool interrupted)
         {
+            Duration = Scheduler.Instance.Timer.Now - _startTime;
             (interrupted ? OnInterrupt : OnComplete)?.Invoke(this);
             OnEnd?.Invoke(this);
             _isInitialized = false;

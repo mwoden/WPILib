@@ -54,7 +54,15 @@ namespace WPILib.CommandsV2
         /// </summary>
         event Func<bool> IsFinished;
 
+        /// <summary>
+        /// A string to indentify the command
+        /// </summary>
         string Name { get; }
+
+        /// <summary>
+        /// The amount of time the command took to run it's most recent execution
+        /// </summary>
+        TimeSpan Duration { get; }
 
         /// <summary>
         /// Whether or not the command can be interrupted by another command for the same subsystem

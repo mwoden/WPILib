@@ -27,6 +27,7 @@ namespace WPILib.CommandsV2
         public ISubsystem Required => null;
         public EntityId Id { get; } = EntityId.Generate();
         public string Name => string.Format("CommandSequence ({0})", (int)Id);
+        public TimeSpan Duration { get; private set; }
         public bool IsRunning => _isRunning;
 
         public IEnumerable<ISubsystem> Requirements => _subsystems;
@@ -66,30 +67,35 @@ namespace WPILib.CommandsV2
 
         public void Start()
         {
-            if (!_groups.Any())
-                throw new InvalidOperationException("CommandSequence has no items");
-
-            // Get all the commands in the command group
-            var commandsWithRequirement = Commands.Where(x => x.Required != null)
-                                                  .Distinct()
-                                                  .ToList();
-
-            // Determine if any of the commands can't run on their requirerd subsystem
-            var canRun = commandsWithRequirement.All(cmd => cmd.Required.IsRunnable(cmd));
-
-            // If the command isn't blocked, stop all the subsystems and begin running the command group
-            if (canRun)
+            if (!_isRunning)
             {
-                _isRunning = true;
-                ((IScheduler)Scheduler.Instance).Start(this);
+                if (!_groups.Any())
+                    throw new InvalidOperationException("CommandSequence has no items");
 
-                foreach (var subsystem in _subsystems)
-                    subsystem.StopActiveCommand();
+                // Get all the commands in the command group
+                var commandsWithRequirement = Commands.Where(x => x.Required != null)
+                                                      .Distinct()
+                                                      .ToList();
 
-                _activeCommands = new Queue<CommandGroup>(_groups);
+                // Determine if any of the commands can't run on their requirerd subsystem
+                var canRun = commandsWithRequirement.All(cmd => cmd.Required.IsRunnable(cmd));
 
-                _activeCommands.Dequeue().Start();
+                // If the command isn't blocked, stop all the subsystems and begin running the command group
+                if (canRun)
+                {
 
+                    _startTime = Scheduler.Instance.Timer.Now;
+                    _isRunning = true;
+                    ((IScheduler)Scheduler.Instance).Start(this);
+
+                    foreach (var subsystem in _subsystems)
+                        subsystem.StopActiveCommand();
+
+                    _activeCommands = new Queue<CommandGroup>(_groups);
+
+                    _activeCommands.Dequeue().Start();
+
+                }
             }
         }
 
@@ -114,6 +120,7 @@ namespace WPILib.CommandsV2
         private readonly IList<ISubsystem> _subsystems;
         private bool _isInitialized;
         private bool _isRunning;
+        private TimeSpan _startTime;
 
         private Queue<CommandGroup> _activeCommands = new Queue<CommandGroup>();
 
@@ -126,6 +133,7 @@ namespace WPILib.CommandsV2
         /// <param name="interrupted">Indicates if the command finished normally or was interrupted</param>
         private void FinishCommandSequence(bool interrupted)
         {
+            Duration = Scheduler.Instance.Timer.Now - _startTime;
             (interrupted ? OnInterrupt : OnComplete)?.Invoke(this);
             OnEnd?.Invoke(this);
             _isInitialized = false;

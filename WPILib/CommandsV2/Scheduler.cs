@@ -6,6 +6,8 @@ namespace WPILib.CommandsV2
 {
     public sealed class Scheduler : IScheduler
     {
+        //TODO This is mimicing the old design and should really be delegated to a 
+        // something in a controller class
         abstract public class Button
         {
             public sealed class WhenActive : Button
@@ -183,13 +185,16 @@ namespace WPILib.CommandsV2
             private readonly Func<bool> getTriggerState;
         }
 
+        /// <summary>
+        /// The scheduler singleton instance
+        /// </summary>
         public static Scheduler Instance => _instance.Value;
 
 
         /// <summary>
-        /// Register a 
+        /// Add a system to scheduler. Subsystems not registered will not have commands scheduled.
         /// </summary>
-        /// <param name="subsystem"></param>
+        /// <param name="subsystem">The subsystem to register</param>
         public void RegisterSubsystem(ISubsystem subsystem)
         {
             if (subsystem != null)
@@ -201,6 +206,11 @@ namespace WPILib.CommandsV2
             Console.WriteLine(string.Format("Added button ({0}", button));
         }
 
+        /// <summary>
+        /// Runs a single iteration of the scheduler execution loop. The loop will determine what commands
+        /// are waiting to be run, from the registered subsystems and from the orphan command list (commands
+        /// without a subsystem)
+        /// </summary>
         public void Run()
         {
             // Build the command list to run this iteration
@@ -216,9 +226,25 @@ namespace WPILib.CommandsV2
                 active.Run();
         }
 
+        public void SetTimer(ITimer timer)
+        {
+            if (Timer == null)
+                Timer = timer;
+        }
+
+        /// <summary>
+        /// A timer for commands to use from timeout and duration
+        /// </summary>
+        public ITimer Timer { get; private set; }
 
         HashSet<ISubsystem> IScheduler.Subsystems => new HashSet<ISubsystem>(_subsystems);
 
+        /// <summary>
+        /// Performs the work of starting a command. For commands with no subsystem, just add it to the orphan list
+        /// For commands with a subsystem, ensure that the subsystem has been register. Then if the command can be
+        /// run, set it as the active command on the subsystem for <see cref="Run"/> to use
+        /// </summary>
+        /// <param name="command">The command to start</param>
         void IScheduler.Start(ICommand command)
         {
             // See if there's a required subsystem
@@ -235,12 +261,10 @@ namespace WPILib.CommandsV2
                 AddOrphanCommand(command);
         }
 
-
-
         private static readonly Lazy<Scheduler> _instance = new Lazy<Scheduler>(() => new Scheduler());
         private Scheduler() { }
 
-        // Commands that aren't running on a specific subsystem
+        // Commands that aren't running on a specific subsystem are orphans, and need to be tracked
         private HashSet<ICommand> _orphanList = new HashSet<ICommand>();
 
         // The subsystems registered with the scheduler
