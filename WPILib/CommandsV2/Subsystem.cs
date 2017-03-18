@@ -14,19 +14,26 @@ namespace WPILib.CommandsV2
 
         public string Name { get; }
 
-
         public Subsystem(string name)
         {
             _id = EntityId.Generate();
             Name = name;
         }
 
+        /// <summary>
+        /// Sets a given action to be the default to execute on the subsystem when no
+        /// other command is active
+        /// </summary>
+        /// <param name="defaultAction">Action to perform as the default</param>
         public void SetDefaultAction(Action defaultAction)
         {
             if (_defaultCommand != null)
                 throw new InvalidOperationException(string.Format("{0} default command already set", Name));
 
-            // Create a default command. The command by definition never completed
+            if (defaultAction == null)
+                throw new ArgumentNullException("defaultAction", "can't be null");
+
+            // Create a default command. The command by definition can never complete
             var defaultCommand = new Command(this, Name + " default");
             defaultCommand.OnExecute += cmd => defaultAction();
             defaultCommand.IsFinished += () => false;
@@ -60,12 +67,8 @@ namespace WPILib.CommandsV2
         /// <returns></returns>
         bool ISubsystem.IsRunnable(ICommand command)
         {
-            //return command != null &&
-            //       command.Required == this &&
-            //       true;
-            //  command != (Command)((ISubsystem)this).ActiveCommand
-
-
+            // If the argument is non-null and requires this subsystem,
+            // then it's runnable if the active command is is interruptible or there is no active command
             if (command != null && command.Required == this)
                 return ActiveCommand?.IsInterruptible ?? true;
 

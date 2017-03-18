@@ -104,6 +104,7 @@
     <Compile Include="CommandsV2\Scheduler.cs" />
     <Compile Include="CommandsV2\Subsystem.cs" />
     <Compile Include="CommandsV2\Trigger.cs" />
+    <Compile Include="CommandsV2\XboxController.cs" />
     <Compile Include="Commands\LinkedListElement.cs" />
     <Compile Include="DigitalGlitchFilter.cs" />
     <Compile Include="Exceptions\AllocationException.cs" />

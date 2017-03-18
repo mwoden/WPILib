@@ -4,192 +4,17 @@ using System.Linq;
 
 namespace WPILib.CommandsV2
 {
+    /// <summary>
+    /// The scheduler is one of the core components for command-based programming.By registering<see cref="Subsystem"/> s
+    /// and adding <see cref="Trigger"/>s, the scheduler will determine what commands need to be run upon each iteration
+    /// of the robot. 
+    /// </summary>
     public sealed class Scheduler : IScheduler
     {
-        //TODO This is mimicing the old design and should really be delegated to a 
-        // something in a controller class
-        abstract public class Button
-        {
-            public sealed class WhenActive : Button
-            {
-                //TODO This should accept the actual hardware object
-                public static void Link(Func<bool> buttonState, ICommand command)
-                {
-                    new WhenActive(buttonState, command);
-                }
-
-                public override void Execute()
-                {
-                    if (GetCurrentState() == State.Active)
-                    {
-                        if (lastState == State.Inactive)
-                        {
-                            lastState = State.Active;
-                            _command.Start();
-                        }
-                    }
-                    else
-                        lastState = State.Inactive;
-                }
-
-                private WhenActive(Func<bool> buttonState, ICommand command)
-                    : base(buttonState, command)
-                { }
-            }
-
-            public sealed class WhileActive : Button
-            {
-                //TODO This should accept the actual hardware object
-                public static void Link(Func<bool> buttonState, ICommand command)
-                {
-                    new WhileActive(buttonState, command);
-                }
-
-                public override void Execute()
-                {
-                    if (GetCurrentState() == State.Active)
-                    {
-                        lastState = State.Active;
-                        _command.Start();
-                    }
-                    else
-                    {
-                        lastState = State.Inactive;
-                        _command.Stop();
-                    }
-                }
-
-                private WhileActive(Func<bool> buttonState, ICommand command)
-                    : base(buttonState, command)
-                { }
-            }
-
-            public sealed class WhenInactive : Button
-            {
-                //TODO This should accept the actual hardware object
-                public static void Link(Func<bool> buttonState, ICommand command)
-                {
-                    new WhenInactive(buttonState, command);
-                }
-
-                public override void Execute()
-                {
-                    if (GetCurrentState() == State.Inactive)
-                    {
-                        if (lastState == State.Active)
-                        {
-                            lastState = State.Inactive;
-                            _command.Start();
-                        }
-                    }
-                    else
-                        lastState = State.Active;
-                }
-
-                private WhenInactive(Func<bool> buttonState, ICommand command)
-                    : base(buttonState, command)
-                { }
-            }
-
-            public sealed class ToggleWhenActive : Button
-            {
-                //TODO This should accept the actual hardware object
-                public static void Link(Func<bool> buttonState, ICommand command)
-                {
-                    new ToggleWhenActive(buttonState, command);
-                }
-
-                public override void Execute()
-                {
-                    if (GetCurrentState() == State.Active)
-                    {
-                        if (lastState == State.Inactive)
-                        {
-                            lastState = State.Active;
-
-                            if (_command.IsRunning)
-                                _command.Stop();
-                            else
-                                _command.Start();
-                        }
-                    }
-                    else
-                        lastState = State.Inactive;
-                }
-
-                private ToggleWhenActive(Func<bool> buttonState, ICommand command)
-                    : base(buttonState, command)
-                { }
-            }
-
-            public sealed class CancelWhenActive : Button
-            {
-                public static void Link(Func<bool> buttonState, ICommand command)
-                {
-                    new CancelWhenActive(buttonState, command);
-                }
-
-                public override void Execute()
-                {
-                    if (GetCurrentState() == State.Active)
-                    {
-                        if (lastState == State.Inactive)
-                        {
-                            lastState = State.Active;
-                            _command.Stop();
-                        }
-                    }
-                    else
-                        lastState = State.Inactive;
-                }
-
-                private CancelWhenActive(Func<bool> buttonState, ICommand command)
-                    : base(buttonState, command)
-                { }
-            }
-
-
-
-
-
-            abstract public void Execute();
-
-            protected void Start()
-            {
-                Scheduler.Instance.AddButton(this);
-            }
-
-            protected State lastState;
-            protected readonly ICommand _command;
-
-            protected Button(Func<bool> stateGetter, ICommand command)
-            {
-                getTriggerState += stateGetter;
-
-                if (command is Command)
-                    _command = ((Command)command).Duplicate();
-                else if (command is CommandGroup)
-                    //_command = new CommandGroup((CommandGroup)command);
-                    throw new NotImplementedException();
-
-                lastState = GetCurrentState();
-            }
-
-            protected State GetCurrentState()
-            {
-                return (getTriggerState?.Invoke() ?? false) ? State.Active : State.Inactive;
-            }
-
-            protected enum State { Active, Inactive }
-
-            private readonly Func<bool> getTriggerState;
-        }
-
         /// <summary>
         /// The scheduler singleton instance
         /// </summary>
         public static Scheduler Instance => _instance.Value;
-
 
         /// <summary>
         /// Add a system to scheduler. Subsystems not registered will not have commands scheduled.
@@ -201,9 +26,10 @@ namespace WPILib.CommandsV2
                 _subsystems.Add(subsystem);
         }
 
-        private void AddButton(Button button)
+        public void AddTrigger(Trigger trigger)
         {
-            Console.WriteLine(string.Format("Added button ({0}", button));
+            _triggers.Add(trigger);
+            Console.WriteLine(string.Format("Added trigger ({0})", trigger));
         }
 
         /// <summary>
@@ -213,13 +39,18 @@ namespace WPILib.CommandsV2
         /// </summary>
         public void Run()
         {
-            // Build the command list to run this iteration
-            var runList = _subsystems.Select(x => x.ActiveCommand)
-                                    .Where(x => x != null)
-                                    .Concat(_orphanList)
-                                    .ToList();
+            // Get any inputs, in reverse so first item will 'win'
+            foreach (var trigger in _triggers.Reverse())
+                trigger.Execute();
 
-            // Get any inputs
+            // Build the command list to run this iteration
+            // 1) Grab from each registered subsystem the active command
+            //      (if there's no command, but a default exists, that will be used. Otherwise, it will be null)
+            // 2) Concatenate the commands that do not have a subsystem (orphan)
+            var runList = _subsystems.Select(x => x.ActiveCommand)
+                                     .Where(x => x != null)
+                                     .Concat(_orphanList)
+                                     .ToList();
 
             // Run all commands
             foreach (var active in runList)
@@ -258,6 +89,7 @@ namespace WPILib.CommandsV2
                     command.Required.SetActiveCommand(command);
             }
             else
+                // If a command has no required subsystem, then it's an orphan
                 AddOrphanCommand(command);
         }
 
@@ -268,7 +100,10 @@ namespace WPILib.CommandsV2
         private HashSet<ICommand> _orphanList = new HashSet<ICommand>();
 
         // The subsystems registered with the scheduler
-        private List<ISubsystem> _subsystems = new List<ISubsystem>();
+        private readonly IList<ISubsystem> _subsystems = new List<ISubsystem>();
+
+        // Triggers for the schedulers
+        private readonly IList<Trigger> _triggers = new List<Trigger>();
 
         /// <summary>
         /// Adds a command to the orphan list so it can be run by the scheduler
@@ -291,6 +126,7 @@ namespace WPILib.CommandsV2
         private void OrphanComplete(ICommand command)
         {
             _orphanList.Remove(command);
+            command.OnEnd -= OrphanComplete;
         }
     }
 }
