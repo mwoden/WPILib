@@ -36,7 +36,7 @@ namespace WPILib.CommandsV2
             // Create a default command. The command by definition can never complete
             var defaultCommand = new Command(this, Name + " default");
             defaultCommand.OnExecute += cmd => defaultAction();
-            defaultCommand.IsFinished += () => false;
+            defaultCommand.IsFinished = () => false;
 
             _defaultCommand = defaultCommand;
         }

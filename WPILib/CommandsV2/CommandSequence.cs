@@ -19,9 +19,9 @@ namespace WPILib.CommandsV2
         public event Action<ICommand> OnInitialize;
         // A CommandSequence doesn't have any external actions on execute
         public event Action<ICommand> OnExecute;
-        // A CommandSequence ends when all the commands are completed
-        public event Func<bool> IsFinished;
 #pragma warning restore CS0067
+        // A CommandSequence ends when all the commands are completed
+        public Func<bool> IsFinished { set { throw new NotSupportedException(); } }
 
         public bool IsInterruptible => _isInterruptible;
         public ISubsystem Required => null;

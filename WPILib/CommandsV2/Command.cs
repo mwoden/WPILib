@@ -34,7 +34,7 @@ namespace WPILib.CommandsV2
         {
             var cmd = new Command("Instant");
 
-            cmd.OnInitialize += c => action?.Invoke();
+            cmd.OnInitialize += _ => action?.Invoke();
             cmd.OnInitialize += c => Console.WriteLine(string.Format("{0}{1} ({2}):  {3} @ {4}", "", c.Name, c.Id, "Init", ""));
             cmd.OnEnd += c => Console.WriteLine(string.Format("{0}{1} ({2}):  {3} @ {4}", "", c.Name, c.Id, "End", ""));
 
@@ -69,8 +69,8 @@ namespace WPILib.CommandsV2
         {
             var cmd = new Command("Normal");
 
-            cmd.OnExecute += c => running?.Invoke();
-            cmd.OnEnd += c => stopping?.Invoke();
+            cmd.OnExecute += _ => running?.Invoke();
+            cmd.OnEnd += _ => stopping?.Invoke();
 
             // The command finishes immediately
             cmd.IsFinished += isFinished;
@@ -91,11 +91,11 @@ namespace WPILib.CommandsV2
             var cmd = new Command("Normal");
 
             cmd.Required = subsystem;
-            cmd.OnExecute += c => running?.Invoke();
-            cmd.OnEnd += c => stopping?.Invoke();
+            cmd.OnExecute += _ => running?.Invoke();
+            cmd.OnEnd += _ => stopping?.Invoke();
 
             // The command finishes immediately
-            cmd.IsFinished += isFinished;
+            cmd.IsFinished = isFinished;
 
             return cmd;
         }
@@ -108,7 +108,7 @@ namespace WPILib.CommandsV2
         public event Action<ICommand> OnComplete;
         public event Action<ICommand> OnInterrupt;
         public event Action<ICommand> OnEnd;
-        public event Func<bool> IsFinished;
+        public Func<bool> IsFinished { private get; set; }
 
         public string Name { get; }
         public TimeSpan Duration { get; private set; }

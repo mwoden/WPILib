@@ -52,7 +52,7 @@ namespace WPILib.CommandsV2
         /// <summary>
         /// Callback to determine whether the command is finished it's work
         /// </summary>
-        event Func<bool> IsFinished;
+        Func<bool> IsFinished { set; }
 
         /// <summary>
         /// A string to indentify the command
@@ -78,7 +78,7 @@ namespace WPILib.CommandsV2
         /// The subsystem required for the command (if there is one)
         /// </summary>
         ISubsystem Required { get; }
-                
+
         /// <summary>
         /// A unique ID for the command
         /// </summary>
