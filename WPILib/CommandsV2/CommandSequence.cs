@@ -35,10 +35,7 @@ namespace WPILib.CommandsV2
 
         public CommandSequence() { }
 
-        public CommandSequence Add(Command command)
-        {
-            return Add(new CommandGroup(command));
-        }
+        public CommandSequence Add(Command command) { return Add(new CommandGroup(command)); }
 
         public CommandSequence Add(CommandGroup commandGroup) => new CommandSequence(_groups.Concat(new[] { commandGroup }));
 
@@ -51,6 +48,7 @@ namespace WPILib.CommandsV2
             _subsystems = _groups.Cast<IMultiCommand>()
                                  .SelectMany(x => x.Requirements)
                                  .Distinct()
+                                 .Where(x => x != null)
                                  .ToList()
                                  .AsReadOnly();
 
@@ -83,7 +81,6 @@ namespace WPILib.CommandsV2
                 // If the command isn't blocked, stop all the subsystems and begin running the command group
                 if (canRun)
                 {
-
                     _startTime = Scheduler.Instance.Timer.Now;
                     _isRunning = true;
                     ((IScheduler)Scheduler.Instance).Start(this);
@@ -92,9 +89,7 @@ namespace WPILib.CommandsV2
                         subsystem.StopActiveCommand();
 
                     _activeCommands = new Queue<CommandGroup>(_groups);
-
-                    _activeCommands.Dequeue().Start();
-
+                    _activeCommands.Peek().Start();
                 }
             }
         }
@@ -147,9 +142,10 @@ namespace WPILib.CommandsV2
         private void CommandEnded(ICommand command)
         {
             command.OnEnd -= CommandEnded;
+            _activeCommands.Dequeue();
 
             if (_activeCommands.Any())
-                _activeCommands.Dequeue().Start();
+                _activeCommands.Peek().Start();
         }
     }
 }

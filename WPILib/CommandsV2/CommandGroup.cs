@@ -120,7 +120,10 @@ namespace WPILib.CommandsV2
                 command.OnEnd += CommandEnded;
 
             _isInterruptible = _commands.All(x => x.IsInterruptible);
-            _subsystems = _commands.Select(x => x.Required).Distinct().ToList().AsReadOnly();
+            _subsystems = _commands.Select(x => x.Required)
+                                   .Where(x => x != null)
+                                   .Distinct()
+                                   .ToList().AsReadOnly();
         }
 
         /// <summary>

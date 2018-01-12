@@ -52,8 +52,16 @@ namespace WPILib.CommandsV2
                                      .Concat(_orphanList)
                                      .ToList();
 
-            // Run all commands
-            foreach (var active in runList)
+
+            // Commands should run in the following order:
+            // 1) Commands
+            // 2) Command Groups
+            // 3) Command Sequences
+
+            // This will allow sequences and groups to finish when the last command does, rather
+            // than waiting for another iteration
+
+            foreach (var active in SortCommandTypes(runList))
                 active.Run();
         }
 
@@ -127,6 +135,16 @@ namespace WPILib.CommandsV2
         {
             _orphanList.Remove(command);
             command.OnEnd -= OrphanComplete;
+        }
+
+        private IList<ICommand> SortCommandTypes(IList<ICommand> list)
+        {
+            var commands = list.OfType<Command>().Cast<ICommand>().ToArray();
+            var groups = list.OfType<CommandGroup>().Cast<ICommand>().ToArray();
+            var sequences = list.OfType<CommandSequence>().Cast<ICommand>().ToArray();
+            var others = list.Except(commands).Except(groups).Except(sequences).Cast<ICommand>().ToArray();
+
+            return commands.Concat(others).Concat(groups).Concat(sequences).ToList().AsReadOnly(); ;
         }
     }
 }

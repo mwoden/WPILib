@@ -20,8 +20,11 @@ namespace WPILib.CommandsV2
             cmd.OnInitialize += c => Console.WriteLine(string.Format("{0}{1} ({2}):  {3} @ {4}", "", c.Name, c.Id, "Init", ""));
             cmd.OnEnd += c => Console.WriteLine(string.Format("{0}{1} ({2}):  {3} @ {4}", "", c.Name, c.Id, "End", ""));
 
+            //cmd.OnInitialize += c => Console.WriteLine($"{c.Name} {c.Id}:  Start @ {((Command)c).StartTime}");
+            //cmd.OnEnd += c => Console.WriteLine($"{c.Name} {c.Id}:  End @ {((Command)c).StartTime + cmd.Duration}");
+
             // The command will finish when it has timed out
-            cmd.IsFinished += () => cmd.IsTimedOut;
+            cmd.IsFinished = () => cmd.IsTimedOut;
 
             return cmd;
         }
@@ -118,6 +121,9 @@ namespace WPILib.CommandsV2
         public ISubsystem Required { get; private set; }
         public bool IsRunning => _isRunning;
 
+        public TimeSpan StartTime => _startTime;
+
+
         public Command()
         {
             Name = GetType().Name.Split(new[] { '.' }).Last();
@@ -177,6 +183,7 @@ namespace WPILib.CommandsV2
             Required = original.Required;
             _isFrozen = original._isFrozen;
             _isInterruptible = original._isInterruptible;
+            _timeOut = original._timeOut;
         }
 
         /// <summary>
@@ -289,9 +296,9 @@ namespace WPILib.CommandsV2
         {
             if (!_isInitialized)
             {
-                OnInitialize?.Invoke(this);
                 _isInitialized = true;
                 _startTime = Scheduler.Instance.Timer.Now;
+                OnInitialize?.Invoke(this);
             }
         }
 
@@ -330,6 +337,5 @@ namespace WPILib.CommandsV2
             _isInitialized = false;
             _isRunning = false;
         }
-
     }
 }
