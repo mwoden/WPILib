@@ -87,7 +87,7 @@ namespace WPILib.CommandsV2
         void IScheduler.Start(ICommand command)
         {
             // See if there's a required subsystem
-            if (command.Required != null)
+            if (command.HasRequirement)
             {
                 if (!_subsystems.Contains(command.Required))
                     throw new InvalidOperationException(string.Format("Command \"{0}\" has a subsystem \"{1}\" that is not registered with the scheduler", command.ToString(), command.Required.ToString()));

@@ -75,6 +75,11 @@ namespace WPILib.CommandsV2
         bool IsRunning { get; }
 
         /// <summary>
+        /// Indicates if there is a subsystem required
+        /// </summary>
+        bool HasRequirement { get; }
+
+        /// <summary>
         /// The subsystem required for the command (if there is one)
         /// </summary>
         ISubsystem Required { get; }

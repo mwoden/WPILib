@@ -118,6 +118,7 @@ namespace WPILib.CommandsV2
         public EntityId Id => _id;
         public bool IsInterruptible => _isInterruptible;
         public bool IsTimedOut => RunningTime > _timeOut;
+        public bool HasRequirement => Required != null;
         public ISubsystem Required { get; private set; }
         public bool IsRunning => _isRunning;
 
